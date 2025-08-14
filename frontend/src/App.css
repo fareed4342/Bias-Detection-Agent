@@ -243,3 +243,35 @@ button:disabled {
   width: 40px;
   object-fit: contain;
 }
+
+.message-content strong {
+  font-weight: bold;
+}
+.message-content em {
+  font-style: italic;
+}
+.message-content ul,
+.message-content ol {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+/* Add to the end of your CSS file */
+.end-session-button {
+  background-color: #ff4444;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-left: 8px;
+  cursor: pointer;
+}
+
+.end-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.end-button:hover:not(:disabled) {
+  color: #ff4444;
+}

@@ -1,7 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
 import './App.css';
 import logo from './logo.png';
+
+function generateUUID() {
+  if (window.crypto && window.crypto.randomUUID) {
+    return window.crypto.randomUUID();
+  } else {
+    // fallback simple UUID generator
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0,
+        v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+}
 
 function App() {
   const [message, setMessage] = useState('');
@@ -12,11 +26,12 @@ function App() {
   const [isFirstInteraction, setIsFirstInteraction] = useState(true);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const [isSessionActive, setIsSessionActive] = useState(true);
 
   // Initialize session ID
   useEffect(() => {
     if (!localStorage.getItem('session_id')) {
-      const id = crypto.randomUUID();
+      const id = generateUUID();
       localStorage.setItem('session_id', id);
     }
   }, []);
@@ -57,7 +72,7 @@ function App() {
     setIsFirstInteraction(false); // Mark first interaction as complete
 
     try {
-      const response = await axios.post('http://localhost:5000/chat', {
+      const response = await axios.post('http://3.85.37.14:5000/chat', {
         message: message,
         session_id: localStorage.getItem('session_id'),
         refresh: conversation.length <= 1
@@ -94,23 +109,37 @@ function App() {
   };
 
   const handleRefresh = () => {
+
     // Generate new session ID
-    const newSessionId = crypto.randomUUID();
+    const newSessionId = generateUUID();
     localStorage.setItem('session_id', newSessionId);
-    
+
     // Clear conversation and reset first interaction state
     setConversation([
       { sender: 'bot', text: 'Hi There..!', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
     ]);
     setMessage('');
     setIsFirstInteraction(true);
-    
+
     setTimeout(() => {
       if (inputRef.current) {
         inputRef.current.focus();
         inputRef.current.selectionStart = inputRef.current.value.length;
       }
     }, 50);
+  };
+
+  const handleEndSession = async () => {
+    try {
+      await axios.post('http://3.85.37.14:5000/end-session', {
+        session_id: localStorage.getItem('session_id'),
+        full_conversation: conversation
+      });
+      setIsSessionActive(false);
+      alert("Session saved successfully!");
+    } catch (error) {
+      console.error("Failed to save session:", error);
+    }
   };
 
   return (
@@ -132,7 +161,13 @@ function App() {
         <div className="message-area">
           {conversation.map((msg, index) => (
             <div key={index} className={`message ${msg.sender}`}>
-              <div className="message-content">{msg.text}</div>
+              <div className="message-content">
+                {msg.sender === 'bot' ? (
+                  <ReactMarkdown>{msg.text}</ReactMarkdown>
+                ) : (
+                  msg.text
+                )}
+              </div>
               <div className="message-time">{msg.time}</div>
             </div>
           ))}
@@ -159,6 +194,15 @@ function App() {
           />
           <button type="button" onClick={handleRefresh} className="refresh-button" title="Refresh">
             <i className="send-icon">⟳</i>
+          </button>
+          <button
+            type="button"
+            onClick={handleEndSession}
+            disabled={!isSessionActive}
+            className="end-button"
+            title="End Session"
+          >
+            <i className="send-icon">■</i>
           </button>
           <button type="submit" disabled={loading || !message.trim()}>
             {loading ? <span className="spinner"></span> : <i className="send-icon">→</i>}

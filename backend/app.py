@@ -4,6 +4,8 @@ import boto3
 import os
 import uuid
 from botocore.config import Config
+from datetime import datetime
+import json
 
 app = Flask(__name__)
 CORS(app)
@@ -15,6 +17,13 @@ aws_config = Config(
         'max_attempts': 3,
         'mode': 'standard'
     }
+)
+
+s3_client = boto3.client(
+    's3',
+    region_name='ap-southeast-1',
+    aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+    aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
 )
 
 @app.route('/chat', methods=['POST'])
@@ -56,6 +65,26 @@ def chat():
     except Exception as e:
         print(f"Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
+    
 
+@app.route('/end-session', methods=['POST'])
+def end_session():
+    data = request.json
+    try:
+        s3_client.put_object(
+            Bucket='bias-detection-agent',  # ← Replace with your bucket name
+            Key=f"completed_sessions/{data['session_id']}.json",
+            Body=json.dumps({
+                "session_id": data['session_id'],
+                "ended_at": datetime.utcnow().isoformat(),
+                "conversation": data['full_conversation']
+            }),
+            ContentType='application/json',
+            ServerSideEncryption='AES256'
+        )
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
 if __name__ == '__main__':
     app.run(debug=True)
